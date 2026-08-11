@@ -57,10 +57,8 @@ uint16_t uartIdx = 0;
 char jsonBuf[512];
 
 // ==================== ISR ====================
-// Legacy PCNT overflow ISR
 static void IRAM_ATTR pcnt_overflow_isr(void *arg) {
   pcnt_overflow_count++;
-  // Clear interrupt
   PCNT.int_clr.val = BIT(pcnt_unit);
 }
 
@@ -149,14 +147,13 @@ void initSafePins() {
 }
 
 void setupPCNT() {
-  // Configure PCNT unit 0, channel 0
   pcnt_config_t pcnt_config = {};
   pcnt_config.pulse_gpio_num = PIN_CLOCK_IN;
   pcnt_config.ctrl_gpio_num = -1;
   pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
   pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
   pcnt_config.pos_mode = PCNT_COUNT_INC;    // Count rising edges
-  pcnt_config.neg_mode = PCNT_COUNT_DIS;    // Ignore falling edges
+  pcnt_config.neg_mode = PCNT_COUNT_DIS;
   pcnt_config.counter_h_lim = PCNT_H_LIM;
   pcnt_config.counter_l_lim = 0;
   pcnt_config.unit = pcnt_unit;
@@ -164,16 +161,13 @@ void setupPCNT() {
 
   pcnt_unit_config(&pcnt_config);
 
-  // Add filter (optional, stability)
   pcnt_set_filter_value(pcnt_unit, 1);
   pcnt_filter_enable(pcnt_unit);
 
-  // Register overflow ISR
   pcnt_isr_register(pcnt_overflow_isr, NULL, 0, NULL);
   pcnt_intr_enable(pcnt_unit);
   pcnt_event_enable(pcnt_unit, PCNT_EVT_H_LIM);
 
-  // Start counting
   pcnt_counter_clear(pcnt_unit);
   pcnt_counter_resume(pcnt_unit);
 }
@@ -355,7 +349,6 @@ void loop() {
   if (now - last1000ms >= 1000) {
     last1000ms = now;
 
-    // Clock measurement (Legacy PCNT)
     int16_t count = 0;
     pcnt_get_counter_value(pcnt_unit, &count);
     pcnt_counter_clear(pcnt_unit);
@@ -369,7 +362,6 @@ void loop() {
     serializeJson(cdoc, jsonBuf);
     ws.textAll(jsonBuf);
 
-    // System info
     float temp = temperatureRead();
     StaticJsonDocument<256> sys;
     sys["type"] = "sys";
