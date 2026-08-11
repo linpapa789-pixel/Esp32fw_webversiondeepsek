@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pro Diag S3</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header class="header">
+    <h1>DIAG PRO S3</h1>
+    <span id="ws-status" class="status offline">OFFLINE</span>
+  </header>
+
+  <nav class="tabs" id="nav-tabs">
+    <button class="tab active" data-view="dash">📊 Dash</button>
+    <button class="tab" data-view="uart">📟 UART</button>
+    <button class="tab" data-view="i2c">📷 I2C</button>
+    <button class="tab" data-view="pwm">⚡ PWM</button>
+    <button class="tab" data-view="logic">📈 Logic</button>
+    <button class="tab" data-view="settings">⚙️ Settings</button>
+    <button class="tab" data-view="about">ℹ️ About</button>
+  </nav>
+
+  <main class="container">
+    <!-- DASHBOARD -->
+    <section id="view-dash" class="view active">
+      <div class="grid-2">
+        <div class="mini-card">
+          <h3>⚡ Voltage</h3>
+          <div id="v-val" class="val">0.00 V</div>
+        </div>
+        <div class="mini-card">
+          <h3>⏱️ Clock</h3>
+          <div id="clk-val" class="val">0 Hz</div>
+        </div>
+      </div>
+      <div class="grid-2">
+        <div class="mini-card">
+          <h3>🔌 USB D+</h3>
+          <span id="usb-dp" class="badge low">L</span>
+        </div>
+        <div class="mini-card">
+          <h3>🔌 USB D-</h3>
+          <span id="usb-dn" class="badge low">L</span>
+        </div>
+      </div>
+      <div class="card">
+        <h3>💻 System</h3>
+        <div class="flex-row"><span>Free Heap</span><span id="heap">0</span></div>
+        <div class="flex-row"><span>Min Heap</span><span id="min-heap">0</span></div>
+        <div class="flex-row"><span>Free PSRAM</span><span id="psram">0</span></div>
+        <div class="flex-row"><span>Temperature</span><span id="temp">0 °C</span></div>
+        <div class="flex-row"><span>WiFi Clients</span><span id="clients">0</span></div>
+      </div>
+    </section>
+
+    <!-- UART -->
+    <section id="view-uart" class="view">
+      <div class="warning">🛡️ RX only, TX disconnected for safety.</div>
+      <div class="controls">
+        <select id="baud">
+          <option value="9600">9600</option>
+          <option value="19200">19200</option>
+          <option value="115200" selected>115200</option>
+          <option value="921600">921600</option>
+        </select>
+        <button id="btn-baud">Set</button>
+        <label><input type="checkbox" id="auto-scroll" checked> Auto-scroll</label>
+        <button id="btn-pause">Pause</button>
+        <button id="btn-clear">Clear</button>
+        <button id="btn-hex">HEX</button>
+        <button id="btn-download">⬇️ Log</button>
+      </div>
+      <div id="term" class="terminal"></div>
+    </section>
+
+    <!-- I2C -->
+    <section id="view-i2c" class="view">
+      <div class="warning">🛡️ Pull-ups disabled, safe for 1.8V bus.</div>
+      <button id="btn-scan">Scan I2C Bus</button>
+      <div id="i2c-res" class="terminal"></div>
+    </section>
+
+    <!-- PWM -->
+    <section id="view-pwm" class="view">
+      <div class="danger-warning">⚠️ Outputs 3.3V! Do not connect to 1.8V lines.</div>
+      <label>Frequency (1-100000 Hz)</label>
+      <input type="number" id="pwm-freq" value="1000" min="1" max="100000">
+      <label>Duty (0-255)</label>
+      <input type="number" id="pwm-duty" value="128" min="0" max="255">
+      <button id="btn-pwm" class="danger">Enable PWM</button>
+    </section>
+
+    <!-- LOGIC ANALYZER -->
+    <section id="view-logic" class="view">
+      <div class="flex-row"><span>BOOT</span><span id="log-boot" class="badge low">L</span></div>
+      <div class="flex-row"><span>RESET</span><span id="log-rst" class="badge low">L</span></div>
+      <div class="flex-row"><span>ENABLE</span><span id="log-en" class="badge low">L</span></div>
+      <div id="seq-log" class="terminal"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view">
+      <div class="card">
+        <h3>WiFi AP Settings</h3>
+        <label>SSID</label>
+        <input type="text" id="cfg-ssid" value="">
+        <label>Password (min 8 chars)</label>
+        <input type="password" id="cfg-pass" value="">
+        <button id="btn-save">Save & Restart</button>
+      </div>
+      <div class="card">
+        <h3>System</h3>
+        <button id="btn-restart">Restart Device</button>
+        <button id="btn-factory" class="danger">Factory Reset</button>
+      </div>
+    </section>
+
+    <!-- ABOUT -->
+    <section id="view-about" class="view">
+      <div class="card">
+        <h3>Pro Diag S3 v2.0</h3>
+        <p>Professional mobile motherboard diagnostic tool.</p>
+        <p>Built on ESP32-S3 with safety-first design.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
