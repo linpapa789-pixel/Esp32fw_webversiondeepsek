@@ -1,39 +1,39 @@
-name: PlatformIO Build
+name: Build ESP32 Firmware
 
-on: [push, pull_request]
+on:
+  push:
+    branches: [ main ]
+  pull_request:
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
+      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-
+          python-version: '3.x'
+          
       - name: Install PlatformIO
+        run: pip install platformio
+        
+      - name: Build firmware and filesystem
         run: |
-          python -m pip install --upgrade pip
-          pip install platformio
-
-      - name: Build firmware
-        run: pio run
-
-      - name: Build LittleFS filesystem image
-        run: pio run --target buildfs
-
-      - name: Collect all .bin files
+          pio run
+          pio run --target buildfs
+          
+      - name: Prepare Individual Files
         run: |
-          mkdir -p flash_package
-          cp .pio/build/*/bootloader.bin flash_package/ 2>/dev/null || true
-          cp .pio/build/*/partitions.bin flash_package/ 2>/dev/null || true
-          cp .pio/build/*/firmware.bin flash_package/ 2>/dev/null || true
-          cp .pio/build/*/littlefs.bin flash_package/ 2>/dev/null || true
-
-      - name: Upload flash package
+          mkdir release_files
+          cp .pio/build/esp32-s3-n16r8/bootloader.bin release_files/ 2>/dev/null || true
+          cp .pio/build/esp32-s3-n16r8/partitions.bin release_files/ 2>/dev/null || true
+          cp .pio/build/esp32-s3-n16r8/firmware.bin release_files/ 2>/dev/null || true
+          cp .pio/build/esp32-s3-n16r8/littlefs.bin release_files/ 2>/dev/null || true
+            
+      - name: Upload Separate Binaries
         uses: actions/upload-artifact@v4
         with:
-          name: flash_package
-          path: flash_package/
+          name: separate-binaries
+          path: release_files/
