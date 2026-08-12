@@ -61,7 +61,7 @@ char jsonBuf[512];
 // ==================== ISR ====================
 static void IRAM_ATTR pcnt_overflow_isr(void *arg) {
   pcnt_overflow_count++;
-  pcnt_clear_intr_status(pcnt_unit);   // Fixed: use API function instead of PCNT register
+  pcnt_intr_clear(pcnt_unit);   // Correct legacy API to clear interrupt
 }
 
 void IRAM_ATTR handleSeqISR(uint8_t pin) {
@@ -320,7 +320,7 @@ void loop() {
     }
   }
 
-  // Sequence events - copy volatile struct fields manually
+  // Sequence events (volatile-safe copy)
   while (eventHead != eventTail) {
     SeqEvent ev;
     ev.timestamp = eventQueue[eventTail].timestamp;
