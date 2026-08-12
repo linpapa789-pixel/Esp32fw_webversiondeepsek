@@ -5,8 +5,9 @@
 #include <LittleFS.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
-#include <driver/pcnt.h>      // Legacy PCNT API
+#include <driver/pcnt.h>
 #include <driver/gpio.h>
+#include <soc/pcnt_struct.h>   // To access PCNT register struct
 
 // ==================== PIN DEFINITIONS ====================
 #define PIN_UART_RX   18
@@ -34,14 +35,13 @@ AsyncWebSocket ws("/ws");
 unsigned long last100ms = 0, last1000ms = 0;
 bool pwmEnabled = false;
 
-// Legacy PCNT variables
 pcnt_unit_t pcnt_unit = PCNT_UNIT_0;
 volatile uint32_t pcnt_overflow_count = 0;
 const int PCNT_H_LIM = 30000;
 const uint8_t LEDC_CHANNEL = 0;
 const uint8_t LEDC_RESOLUTION = 8;
 
-// Sequence event queue (ISR safe)
+// Sequence event queue
 #define EVENT_QUEUE_SIZE 64
 struct SeqEvent {
   uint32_t timestamp;
@@ -51,17 +51,15 @@ struct SeqEvent {
 volatile SeqEvent eventQueue[EVENT_QUEUE_SIZE];
 volatile uint8_t eventHead = 0, eventTail = 0;
 
-// UART buffer
 char uartBuf[256];
 uint16_t uartIdx = 0;
-
-// JSON serialization buffer
 char jsonBuf[512];
 
 // ==================== ISR ====================
 static void IRAM_ATTR pcnt_overflow_isr(void *arg) {
   pcnt_overflow_count++;
-  pcnt_intr_clear(pcnt_unit);   // Correct legacy API to clear interrupt
+  // Direct register access to clear interrupt (safe in ISR)
+  PCNT.int_clr.val = BIT(pcnt_unit);
 }
 
 void IRAM_ATTR handleSeqISR(uint8_t pin) {
@@ -162,7 +160,6 @@ void setupPCNT() {
   pcnt_config.channel = PCNT_CHANNEL_0;
 
   pcnt_unit_config(&pcnt_config);
-
   pcnt_set_filter_value(pcnt_unit, 1);
   pcnt_filter_enable(pcnt_unit);
 
@@ -206,7 +203,7 @@ void enablePWM(long freq, int duty) {
 void disablePWM() {
   if (!pwmEnabled) return;
   ledcDetachPin(PIN_PWM_OUT);
-  pinMode(PIN_PWM_OUT, INPUT);   // Safety: back to high-Z
+  pinMode(PIN_PWM_OUT, INPUT);
   pwmEnabled = false;
 }
 
@@ -302,7 +299,7 @@ void loop() {
   ws.cleanupClients();
   unsigned long now = millis();
 
-  // UART streaming
+  // UART
   while (Serial1.available()) {
     char c = Serial1.read();
     if (uartIdx < sizeof(uartBuf) - 1) {
@@ -320,7 +317,7 @@ void loop() {
     }
   }
 
-  // Sequence events (volatile-safe copy)
+  // Sequence events
   while (eventHead != eventTail) {
     SeqEvent ev;
     ev.timestamp = eventQueue[eventTail].timestamp;
