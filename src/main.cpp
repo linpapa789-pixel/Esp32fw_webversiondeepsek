@@ -5,7 +5,7 @@
 #include <LittleFS.h>
 #include <Wire.h>
 #include <ArduinoJson.h>
-#include <driver/pcnt.h>      // Legacy PCNT API (Arduino-ESP32 compatible)
+#include <driver/pcnt.h>      // Legacy PCNT API
 #include <driver/gpio.h>
 
 // ==================== PIN DEFINITIONS ====================
@@ -38,6 +38,8 @@ bool pwmEnabled = false;
 pcnt_unit_t pcnt_unit = PCNT_UNIT_0;
 volatile uint32_t pcnt_overflow_count = 0;
 const int PCNT_H_LIM = 30000;
+const uint8_t LEDC_CHANNEL = 0;
+const uint8_t LEDC_RESOLUTION = 8;
 
 // Sequence event queue (ISR safe)
 #define EVENT_QUEUE_SIZE 64
@@ -59,7 +61,7 @@ char jsonBuf[512];
 // ==================== ISR ====================
 static void IRAM_ATTR pcnt_overflow_isr(void *arg) {
   pcnt_overflow_count++;
-  PCNT.int_clr.val = BIT(pcnt_unit);
+  pcnt_clear_intr_status(pcnt_unit);   // Fixed: use API function instead of PCNT register
 }
 
 void IRAM_ATTR handleSeqISR(uint8_t pin) {
@@ -143,7 +145,7 @@ void initSafePins() {
   attachInterrupt(digitalPinToInterrupt(PIN_EN_MON), isrEn, CHANGE);
 
   analogReadResolution(12);
-  analogSetAttenuation(ADC_11db);  // 0-3.1V
+  analogSetAttenuation(ADC_11db);
 }
 
 void setupPCNT() {
@@ -152,7 +154,7 @@ void setupPCNT() {
   pcnt_config.ctrl_gpio_num = -1;
   pcnt_config.lctrl_mode = PCNT_MODE_KEEP;
   pcnt_config.hctrl_mode = PCNT_MODE_KEEP;
-  pcnt_config.pos_mode = PCNT_COUNT_INC;    // Count rising edges
+  pcnt_config.pos_mode = PCNT_COUNT_INC;
   pcnt_config.neg_mode = PCNT_COUNT_DIS;
   pcnt_config.counter_h_lim = PCNT_H_LIM;
   pcnt_config.counter_l_lim = 0;
@@ -193,6 +195,21 @@ void scanI2C(String &output) {
   pinMode(PIN_I2C_SCL, INPUT);
 }
 
+void enablePWM(long freq, int duty) {
+  if (pwmEnabled) return;
+  ledcSetup(LEDC_CHANNEL, freq, LEDC_RESOLUTION);
+  ledcAttachPin(PIN_PWM_OUT, LEDC_CHANNEL);
+  ledcWrite(LEDC_CHANNEL, duty);
+  pwmEnabled = true;
+}
+
+void disablePWM() {
+  if (!pwmEnabled) return;
+  ledcDetachPin(PIN_PWM_OUT);
+  pinMode(PIN_PWM_OUT, INPUT);   // Safety: back to high-Z
+  pwmEnabled = false;
+}
+
 // ==================== WEBSOCKET HANDLER ====================
 void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type,
                void *arg, uint8_t *data, size_t len) {
@@ -225,14 +242,10 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
           long freq = doc["f"];
           int duty = doc["d"];
           if (freq >= 1 && freq <= 100000 && duty >= 0 && duty <= 255) {
-            ledcAttach(PIN_PWM_OUT, freq, 8);
-            ledcWrite(PIN_PWM_OUT, duty);
-            pwmEnabled = true;
+            enablePWM(freq, duty);
           }
         } else {
-          ledcDetach(PIN_PWM_OUT);
-          pinMode(PIN_PWM_OUT, INPUT);
-          pwmEnabled = false;
+          disablePWM();
         }
       } else if (cmd == "saveconfig") {
         const char *ssid = doc["ssid"];
@@ -307,10 +320,14 @@ void loop() {
     }
   }
 
-  // Sequence events
+  // Sequence events - copy volatile struct fields manually
   while (eventHead != eventTail) {
-    SeqEvent ev = eventQueue[eventTail];
+    SeqEvent ev;
+    ev.timestamp = eventQueue[eventTail].timestamp;
+    ev.pin = eventQueue[eventTail].pin;
+    ev.state = eventQueue[eventTail].state;
     eventTail = (eventTail + 1) % EVENT_QUEUE_SIZE;
+
     String pinName = (ev.pin == PIN_BOOT_MON) ? "BOOT" :
                      (ev.pin == PIN_RESET_MON) ? "RST" :
                      (ev.pin == PIN_EN_MON) ? "EN" : String(ev.pin);
