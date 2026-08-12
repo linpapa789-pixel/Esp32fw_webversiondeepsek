@@ -7,7 +7,7 @@
 #include <ArduinoJson.h>
 #include <driver/pcnt.h>
 #include <driver/gpio.h>
-#include <soc/pcnt_struct.h>   // To access PCNT register struct
+#include <soc/pcnt_struct.h>
 
 // ==================== PIN DEFINITIONS ====================
 #define PIN_UART_RX   18
@@ -34,6 +34,7 @@ AsyncWebSocket ws("/ws");
 // ==================== GLOBAL STATE ====================
 unsigned long last100ms = 0, last1000ms = 0;
 bool pwmEnabled = false;
+bool pcntOk = false;               // ← PCNT အဆင်ပြေမပြေ စစ်ဖို့
 
 pcnt_unit_t pcnt_unit = PCNT_UNIT_0;
 volatile uint32_t pcnt_overflow_count = 0;
@@ -58,7 +59,6 @@ char jsonBuf[512];
 // ==================== ISR ====================
 static void IRAM_ATTR pcnt_overflow_isr(void *arg) {
   pcnt_overflow_count++;
-  // Direct register access to clear interrupt (safe in ISR)
   PCNT.int_clr.val = BIT(pcnt_unit);
 }
 
@@ -159,7 +159,13 @@ void setupPCNT() {
   pcnt_config.unit = pcnt_unit;
   pcnt_config.channel = PCNT_CHANNEL_0;
 
-  pcnt_unit_config(&pcnt_config);
+  esp_err_t err = pcnt_unit_config(&pcnt_config);
+  if (err != ESP_OK) {
+    Serial.printf("PCNT init FAILED: 0x%X\n", err);
+    pcntOk = false;
+    return;
+  }
+
   pcnt_set_filter_value(pcnt_unit, 1);
   pcnt_filter_enable(pcnt_unit);
 
@@ -169,6 +175,9 @@ void setupPCNT() {
 
   pcnt_counter_clear(pcnt_unit);
   pcnt_counter_resume(pcnt_unit);
+
+  pcntOk = true;
+  Serial.println("PCNT initialized OK");
 }
 
 void scanI2C(String &output) {
@@ -274,11 +283,14 @@ void onWsEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventTyp
 // ==================== SETUP ====================
 void setup() {
   Serial.begin(115200);
+
+  // LittleFS mount – fail safe
   if (!LittleFS.begin(true)) {
-    Serial.println("LittleFS mount failed");
-    return;
+    Serial.println("LittleFS mount FAILED, continuing without FS...");
+    // ဒီနေရာမှာ return မလုပ်ဘဲ ဆက်သွားပါမယ်
+  } else {
+    loadConfig();
   }
-  loadConfig();
 
   initSafePins();
   setupPCNT();
@@ -287,6 +299,7 @@ void setup() {
 
   WiFi.mode(WIFI_AP);
   WiFi.softAP(apSSID.c_str(), apPass.c_str());
+  Serial.printf("WiFi AP: %s\n", apSSID.c_str());
 
   server.serveStatic("/", LittleFS, "/").setDefaultFile("index.html");
   ws.onEvent(onWsEvent);
@@ -299,7 +312,7 @@ void loop() {
   ws.cleanupClients();
   unsigned long now = millis();
 
-  // UART
+  // UART streaming
   while (Serial1.available()) {
     char c = Serial1.read();
     if (uartIdx < sizeof(uartBuf) - 1) {
@@ -363,19 +376,36 @@ void loop() {
   if (now - last1000ms >= 1000) {
     last1000ms = now;
 
-    int16_t count = 0;
-    pcnt_get_counter_value(pcnt_unit, &count);
-    pcnt_counter_clear(pcnt_unit);
-    uint32_t ov = pcnt_overflow_count;
-    pcnt_overflow_count = 0;
-    uint32_t hz = ov * PCNT_H_LIM + count;
+    // Clock measurement (PCNT safe)
+    if (pcntOk) {
+      int16_t count = 0;
+      esp_err_t err = pcnt_get_counter_value(pcnt_unit, &count);
+      if (err == ESP_OK) {
+        pcnt_counter_clear(pcnt_unit);
+        uint32_t ov = pcnt_overflow_count;
+        pcnt_overflow_count = 0;
+        uint32_t hz = ov * PCNT_H_LIM + count;
 
-    StaticJsonDocument<128> cdoc;
-    cdoc["type"] = "clk";
-    cdoc["val"] = hz;
-    serializeJson(cdoc, jsonBuf);
-    ws.textAll(jsonBuf);
+        StaticJsonDocument<128> cdoc;
+        cdoc["type"] = "clk";
+        cdoc["val"] = hz;
+        serializeJson(cdoc, jsonBuf);
+        ws.textAll(jsonBuf);
+      } else {
+        // PCNT error တက်ရင် disable လုပ်
+        pcntOk = false;
+        Serial.println("PCNT error, disabling clock meter");
+      }
+    } else {
+      // PCNT မရှိရင် clock 0 ပို့
+      StaticJsonDocument<128> cdoc;
+      cdoc["type"] = "clk";
+      cdoc["val"] = 0;
+      serializeJson(cdoc, jsonBuf);
+      ws.textAll(jsonBuf);
+    }
 
+    // System info
     float temp = temperatureRead();
     StaticJsonDocument<256> sys;
     sys["type"] = "sys";
