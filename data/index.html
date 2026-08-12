@@ -1,132 +1,342 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Pro Diag S3</title>
-  <link rel="stylesheet" href="/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Pro Diag S3</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
-  <header class="header">
-    <h1>DIAG PRO S3</h1>
-    <span id="ws-status" class="status offline">OFFLINE</span>
-  </header>
-
-  <nav class="tabs" id="nav-tabs">
-    <button class="tab active" data-view="dash">📊 Dash</button>
-    <button class="tab" data-view="uart">📟 UART</button>
-    <button class="tab" data-view="i2c">📷 I2C</button>
-    <button class="tab" data-view="pwm">⚡ PWM</button>
-    <button class="tab" data-view="logic">📈 Logic</button>
-    <button class="tab" data-view="settings">⚙️ Settings</button>
-    <button class="tab" data-view="about">ℹ️ About</button>
-  </nav>
-
-  <main class="container">
-    <!-- DASHBOARD -->
-    <section id="view-dash" class="view active">
-      <div class="grid-2">
-        <div class="mini-card">
-          <h3>⚡ Voltage</h3>
-          <div id="v-val" class="val">0.00 V</div>
+    <!-- Splash Screen -->
+    <div id="splash" class="splash">
+        <div class="splash-content">
+            <div class="pulse-ring"></div>
+            <svg class="logo" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+            </svg>
+            <h1>DIAG<span>PRO</span></h1>
+            <p>Initializing Hardware...</p>
         </div>
-        <div class="mini-card">
-          <h3>⏱️ Clock</h3>
-          <div id="clk-val" class="val">0 Hz</div>
-        </div>
-      </div>
-      <div class="grid-2">
-        <div class="mini-card">
-          <h3>🔌 USB D+</h3>
-          <span id="usb-dp" class="badge low">L</span>
-        </div>
-        <div class="mini-card">
-          <h3>🔌 USB D-</h3>
-          <span id="usb-dn" class="badge low">L</span>
-        </div>
-      </div>
-      <div class="card">
-        <h3>💻 System</h3>
-        <div class="flex-row"><span>Free Heap</span><span id="heap">0</span></div>
-        <div class="flex-row"><span>Min Heap</span><span id="min-heap">0</span></div>
-        <div class="flex-row"><span>Free PSRAM</span><span id="psram">0</span></div>
-        <div class="flex-row"><span>Temperature</span><span id="temp">0 °C</span></div>
-        <div class="flex-row"><span>WiFi Clients</span><span id="clients">0</span></div>
-      </div>
-    </section>
+    </div>
 
-    <!-- UART -->
-    <section id="view-uart" class="view">
-      <div class="warning">🛡️ RX only, TX disconnected for safety.</div>
-      <div class="controls">
-        <select id="baud">
-          <option value="9600">9600</option>
-          <option value="19200">19200</option>
-          <option value="115200" selected>115200</option>
-          <option value="921600">921600</option>
-        </select>
-        <button id="btn-baud">Set</button>
-        <label><input type="checkbox" id="auto-scroll" checked> Auto-scroll</label>
-        <button id="btn-pause">Pause</button>
-        <button id="btn-clear">Clear</button>
-        <button id="btn-hex">HEX</button>
-        <button id="btn-download">⬇️ Log</button>
-      </div>
-      <div id="term" class="terminal"></div>
-    </section>
+    <!-- Main App -->
+    <div id="app" class="app hidden">
+        <!-- Sidebar -->
+        <aside id="sidebar" class="sidebar">
+            <div class="sidebar-header">
+                <div class="logo-small">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                    </svg>
+                    <span>DIAG<span>PRO</span></span>
+                </div>
+            </div>
+            <nav id="nav" class="nav">
+                <button class="nav-item active" data-view="dashboard" onclick="switchView('dashboard', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>
+                    <span>Dashboard</span>
+                </button>
+                <button class="nav-item" data-view="oscilloscope" onclick="switchView('oscilloscope', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span>Scope</span>
+                </button>
+                <button class="nav-item" data-view="uart" onclick="switchView('uart', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/></svg>
+                    <span>UART</span>
+                </button>
+                <button class="nav-item" data-view="i2c" onclick="switchView('i2c', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+                    <span>I2C</span>
+                </button>
+                <button class="nav-item" data-view="pwm" onclick="switchView('pwm', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                    <span>PWM</span>
+                </button>
+                <button class="nav-item" data-view="logic" onclick="switchView('logic', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+                    <span>Logic</span>
+                </button>
+                <button class="nav-item" data-view="settings" onclick="switchView('settings', this)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <span>Settings</span>
+                </button>
+            </nav>
+            <div class="sidebar-footer">
+                <div class="connection-status" id="connection-status">
+                    <span class="status-dot"></span>
+                    <span id="status-text">Connecting...</span>
+                </div>
+            </div>
+        </aside>
 
-    <!-- I2C -->
-    <section id="view-i2c" class="view">
-      <div class="warning">🛡️ Pull-ups disabled, safe for 1.8V bus.</div>
-      <button id="btn-scan">Scan I2C Bus</button>
-      <div id="i2c-res" class="terminal"></div>
-    </section>
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Dashboard View -->
+            <section id="view-dashboard" class="view active">
+                <div class="view-header">
+                    <h2>Dashboard</h2>
+                    <div class="header-stats">
+                        <div class="stat-pill">
+                            <span class="stat-icon">⏱️</span>
+                            <span id="uptime">00:00:00</span>
+                        </div>
+                        <div class="stat-pill">
+                            <span class="stat-icon">📶</span>
+                            <span id="wifi-clients">0</span>
+                        </div>
+                    </div>
+                </div>
 
-    <!-- PWM -->
-    <section id="view-pwm" class="view">
-      <div class="danger-warning">⚠️ Outputs 3.3V! Do not connect to 1.8V lines.</div>
-      <label>Frequency (1-100000 Hz)</label>
-      <input type="number" id="pwm-freq" value="1000" min="1" max="100000">
-      <label>Duty (0-255)</label>
-      <input type="number" id="pwm-duty" value="128" min="0" max="255">
-      <button id="btn-pwm" class="danger">Enable PWM</button>
-    </section>
+                <!-- Main Metrics -->
+                <div class="metrics-grid">
+                    <div class="metric-card voltage">
+                        <div class="metric-header">
+                            <h3>Voltage</h3>
+                            <span class="metric-unit">V</span>
+                        </div>
+                        <div class="metric-value" id="v-val">0.00</div>
+                        <div class="metric-footer">
+                            <span class="metric-label">ADC1_CH1</span>
+                            <span class="metric-status safe">SAFE</span>
+                        </div>
+                    </div>
 
-    <!-- LOGIC ANALYZER -->
-    <section id="view-logic" class="view">
-      <div class="flex-row"><span>BOOT</span><span id="log-boot" class="badge low">L</span></div>
-      <div class="flex-row"><span>RESET</span><span id="log-rst" class="badge low">L</span></div>
-      <div class="flex-row"><span>ENABLE</span><span id="log-en" class="badge low">L</span></div>
-      <div id="seq-log" class="terminal"></div>
-    </section>
+                    <div class="metric-card frequency">
+                        <div class="metric-header">
+                            <h3>Frequency</h3>
+                            <span class="metric-unit">Hz</span>
+                        </div>
+                        <div class="metric-value" id="clk-val">0</div>
+                        <div class="metric-footer">
+                            <span class="metric-label">PCNT</span>
+                            <span class="metric-status">MONITOR</span>
+                        </div>
+                    </div>
 
-    <!-- SETTINGS -->
-    <section id="view-settings" class="view">
-      <div class="card">
-        <h3>WiFi AP Settings</h3>
-        <label>SSID</label>
-        <input type="text" id="cfg-ssid" value="">
-        <label>Password (min 8 chars)</label>
-        <input type="password" id="cfg-pass" value="">
-        <button id="btn-save">Save & Restart</button>
-      </div>
-      <div class="card">
-        <h3>System</h3>
-        <button id="btn-restart">Restart Device</button>
-        <button id="btn-factory" class="danger">Factory Reset</button>
-      </div>
-    </section>
+                    <div class="metric-card temperature">
+                        <div class="metric-header">
+                            <h3>Temperature</h3>
+                            <span class="metric-unit">°C</span>
+                        </div>
+                        <div class="metric-value" id="temp-val">0.0</div>
+                        <div class="metric-footer">
+                            <span class="metric-label">Internal</span>
+                            <span class="metric-status" id="temp-status">OK</span>
+                        </div>
+                    </div>
 
-    <!-- ABOUT -->
-    <section id="view-about" class="view">
-      <div class="card">
-        <h3>Pro Diag S3 v2.0</h3>
-        <p>Professional mobile motherboard diagnostic tool.</p>
-        <p>Built on ESP32-S3 with safety-first design.</p>
-      </div>
-    </section>
-  </main>
+                    <div class="metric-card memory">
+                        <div class="metric-header">
+                            <h3>Memory</h3>
+                            <span class="metric-unit">KB</span>
+                        </div>
+                        <div class="metric-value" id="heap-val">0</div>
+                        <div class="metric-footer">
+                            <span class="metric-label">Free Heap</span>
+                            <div class="mini-bar">
+                                <div class="mini-bar-fill" id="heap-bar" style="width: 0%"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
 
-  <script src="/app.js"></script>
+                <!-- USB & PSRAM Row -->
+                <div class="info-row">
+                    <div class="info-card">
+                        <h3>USB Monitor</h3>
+                        <div class="usb-monitor">
+                            <div class="usb-line">
+                                <span>D+</span>
+                                <span id="usb-dp" class="badge low">LOW</span>
+                            </div>
+                            <div class="usb-line">
+                                <span>D-</span>
+                                <span id="usb-dn" class="badge low">LOW</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <h3>PSRAM</h3>
+                        <div class="psram-info">
+                            <div class="psram-stat">
+                                <span class="psram-label">Free</span>
+                                <span class="psram-value" id="psram-free">0</span>
+                            </div>
+                            <div class="psram-stat">
+                                <span class="psram-label">Total</span>
+                                <span class="psram-value" id="psram-total">0</span>
+                            </div>
+                        </div>
+                        <div class="mini-bar">
+                            <div class="mini-bar-fill psram" id="psram-bar" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Oscilloscope View -->
+            <section id="view-oscilloscope" class="view">
+                <div class="view-header">
+                    <h2>Oscilloscope</h2>
+                    <div class="scope-controls">
+                        <select id="scope-timebase" onchange="updateScopeConfig()">
+                            <option value="100">100 ms/div</option>
+                            <option value="200" selected>200 ms/div</option>
+                            <option value="500">500 ms/div</option>
+                            <option value="1000">1 s/div</option>
+                        </select>
+                        <button class="btn-icon" onclick="toggleScopeFreeze()" id="btn-freeze">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12"/></svg>
+                        </button>
+                        <button class="btn-icon" onclick="clearScope()">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                </div>
+                <div class="scope-container">
+                    <canvas id="scope-canvas" class="scope-canvas"></canvas>
+                    <div class="scope-legend">
+                        <span class="legend-item"><span class="legend-color" style="background: var(--primary)"></span> ADC1</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- UART View -->
+            <section id="view-uart" class="view">
+                <div class="view-header">
+                    <h2>UART Terminal</h2>
+                    <div class="terminal-toolbar">
+                        <select id="baud-rate" onchange="setBaudRate()">
+                            <option value="9600">9600</option>
+                            <option value="19200">19200</option>
+                            <option value="115200" selected>115200</option>
+                            <option value="921600">921600</option>
+                        </select>
+                        <button class="btn-icon" id="btn-hex" onclick="toggleHexMode()">HEX</button>
+                        <button class="btn-icon" id="btn-pause-uart" onclick="togglePauseUART()">⏯</button>
+                        <button class="btn-icon" onclick="clearTerminal()">🗑</button>
+                        <button class="btn-icon" onclick="downloadLog()">⬇</button>
+                    </div>
+                </div>
+                <div class="terminal-wrapper">
+                    <div class="terminal" id="terminal"></div>
+                </div>
+                <div class="terminal-statusbar">
+                    <span id="uart-status">RX | 115200-8N1 | Lines: 0</span>
+                    <span id="auto-scroll-indicator">Auto-scroll: ON</span>
+                </div>
+            </section>
+
+            <!-- I2C View -->
+            <section id="view-i2c" class="view">
+                <div class="view-header">
+                    <h2>I2C Scanner</h2>
+                    <button class="btn-primary" onclick="scanI2CBus()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                        Scan Bus
+                    </button>
+                </div>
+                <div class="i2c-grid" id="i2c-grid"></div>
+                <div class="i2c-info" id="i2c-info"></div>
+            </section>
+
+            <!-- PWM View -->
+            <section id="view-pwm" class="view">
+                <div class="view-header">
+                    <h2>PWM Generator</h2>
+                    <div class="safety-badge" id="pwm-safety">SAFE</div>
+                </div>
+                <div class="pwm-control-panel">
+                    <div class="pwm-sliders">
+                        <div class="slider-group">
+                            <label>Frequency</label>
+                            <input type="range" id="pwm-freq-slider" min="1" max="100000" value="1000" oninput="updatePWMLabels()">
+                            <span id="pwm-freq-label">1000 Hz</span>
+                        </div>
+                        <div class="slider-group">
+                            <label>Duty Cycle</label>
+                            <input type="range" id="pwm-duty-slider" min="0" max="100" value="50" oninput="updatePWMLabels()">
+                            <span id="pwm-duty-label">50%</span>
+                        </div>
+                    </div>
+                    <div class="pwm-waveform">
+                        <canvas id="pwm-canvas" class="pwm-canvas" width="400" height="100"></canvas>
+                    </div>
+                    <button class="btn-danger" id="btn-pwm-toggle" onclick="togglePWM()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                        Enable PWM
+                    </button>
+                </div>
+            </section>
+
+            <!-- Logic Analyzer View -->
+            <section id="view-logic" class="view">
+                <div class="view-header">
+                    <h2>Logic Analyzer</h2>
+                    <div class="logic-controls">
+                        <button class="btn-icon" onclick="clearLogicEvents()">Clear</button>
+                        <span class="event-count" id="event-count">Events: 0</span>
+                    </div>
+                </div>
+                <div class="logic-signals">
+                    <div class="signal-row" id="signal-boot">
+                        <span class="signal-name">BOOT</span>
+                        <canvas class="signal-canvas" id="canvas-boot" width="800" height="30"></canvas>
+                        <span class="signal-state badge low" id="state-boot">L</span>
+                    </div>
+                    <div class="signal-row" id="signal-reset">
+                        <span class="signal-name">RST</span>
+                        <canvas class="signal-canvas" id="canvas-reset" width="800" height="30"></canvas>
+                        <span class="signal-state badge low" id="state-reset">L</span>
+                    </div>
+                    <div class="signal-row" id="signal-enable">
+                        <span class="signal-name">EN</span>
+                        <canvas class="signal-canvas" id="canvas-enable" width="800" height="30"></canvas>
+                        <span class="signal-state badge low" id="state-enable">L</span>
+                    </div>
+                </div>
+                <div class="logic-event-log" id="logic-event-log"></div>
+            </section>
+
+            <!-- Settings View -->
+            <section id="view-settings" class="view">
+                <div class="view-header">
+                    <h2>Settings</h2>
+                </div>
+                <div class="settings-panel">
+                    <div class="setting-group">
+                        <h3>WiFi Access Point</h3>
+                        <div class="input-group">
+                            <label>SSID</label>
+                            <input type="text" id="cfg-ssid" placeholder="JCID_Diag_S3">
+                        </div>
+                        <div class="input-group">
+                            <label>Password</label>
+                            <input type="password" id="cfg-pass" placeholder="Min 8 characters">
+                        </div>
+                        <button class="btn-primary" onclick="saveWiFiSettings()">Save & Restart</button>
+                    </div>
+                    <div class="setting-group">
+                        <h3>Theme</h3>
+                        <div class="theme-selector">
+                            <button class="theme-btn active" onclick="setTheme('dark')">Dark</button>
+                            <button class="theme-btn" onclick="setTheme('cyberpunk')">Cyberpunk</button>
+                            <button class="theme-btn" onclick="setTheme('matrix')">Matrix</button>
+                        </div>
+                    </div>
+                    <div class="setting-group">
+                        <h3>System</h3>
+                        <button class="btn-secondary" onclick="restartDevice()">Restart Device</button>
+                        <button class="btn-danger" onclick="factoryReset()">Factory Reset</button>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="/app.js"></script>
 </body>
-</html>
+                          </html>
